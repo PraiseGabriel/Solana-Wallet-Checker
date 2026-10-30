@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solana Account Viewer</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #000; background: #fff; }
+  textarea { width: 100%; height: 140px; font-family: monospace; box-sizing: border-box; padding: .5rem; border: 1px solid #000; }
+  button { margin-top: .5rem; padding: .5rem 1rem; border: 1px solid #000; background: #000; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+  th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #000; font-size: .9rem; }
+  td.addr { font-family: monospace; word-break: break-all; }
+  td.num { text-align: right; white-space: nowrap; }
+  #msg { margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>Solana Account Viewer</h1>
+<p>Network: Devnet<br><small>{{ rpc_url }}</small></p>
+<label for="addresses">Wallet addresses (one per line, or separated by commas/spaces)</label>
+<textarea id="addresses" placeholder="Paste Solana addresses here"></textarea>
+<button id="go">Get balances</button>
+<div id="msg"></div>
+<table id="out" hidden>
+  <thead><tr><th>Address</th><th class="num">Balance (SOL)</th><th>Status</th></tr></thead>
+  <tbody></tbody>
+</table>
+<script>
+const go = document.getElementById("go"), msg = document.getElementById("msg"),
+      out = document.getElementById("out"), body = out.querySelector("tbody");
+const labels = { ok: "OK", not_found: "Account not found", invalid: "Invalid address" };
+
+go.addEventListener("click", async () => {
+  msg.textContent = "Loading..."; out.hidden = true; go.disabled = true;
+  try {
+    const res = await fetch("/api/balances", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addresses: document.getElementById("addresses").value })
+    });
+    const data = await res.json();
+    if (!res.ok) { msg.textContent = data.error; return; }
+    body.replaceChildren();
+    for (const r of data.results) {
+      const tr = document.createElement("tr");
+      for (const [text, cls] of [[r.address, "addr"], [r.sol ?? "-", "num"], [labels[r.status], ""]]) {
+        const td = document.createElement("td");
+        td.textContent = text; if (cls) td.className = cls; tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+    out.hidden = false; msg.textContent = "";
+  } catch (e) { msg.textContent = "Request failed: " + e.message; }
+  finally { go.disabled = false; }
+});
+</script>
+</body>
+</html>
